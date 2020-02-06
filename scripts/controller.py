@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import rospy
 from geometry_msgs.msg import PoseStamped
-from geometry_msgs.msg import Twist
+from robomaster_controller.msg import Params
+from robomaster_controller.msg import Info
 
 import websocket
 import time
@@ -12,12 +13,13 @@ class RobotControlClient:
 
 	def __init__(self):
 		rospy.init_node('listener', anonymous=True)
-		listener = rospy.Subscriber('/tracker/pose', PoseStamped, self.robotCallback, queue_size=1)
-		listener2 = rospy.Subscriber('/cmd_vel', Twist, self.commandCallback, queue_size=1)
-		self.publisher = rospy.Publisher('/pdError', Twist, queue_size=1)
+		listener =  rospy.Subscriber('/tracker/pose', PoseStamped, self.robotCallback, queue_size=1)
+		listener2 = rospy.Subscriber('/cmd_vel', Params, self.commandCallback, queue_size=1)
+		listener3 = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.targetCallback, queue_size=1)
+		self.publisher = rospy.Publisher('/robomaster/info', PoseStamped, queue_size=1)
 
 		self.target = [-1., 0., 0.]
-		self.speed = [0.5, 0.05]
+		self.speed = [0.5, 0.1]
 
 		self.pGain = 2.
 		self.dGain = 0.05
@@ -38,8 +40,41 @@ class RobotControlClient:
 	def commandCallback(self, data):
 		self.pGain = data.pdcontrol.p
 		self.dGain = data.pdcontrol.d
-		self.target = [data.target.z, data.target.x, data.target.theta]
+		# self.target = [data.target.z, data.target.x, data.target.theta]
 		self.speed = [data.speed.linear, data.speed.angular]
+
+
+	def targetCallback(self, data):
+		z = data.pose.position.x
+		x = data.pose.position.y
+
+		q = data.pose.orientation
+		q.y = q.z
+		q.z = 0.0
+
+		theta = self.quat2Rotation(q)
+
+		self.target = [z, x, theta]
+		print(self.target)
+
+
+	def publish(self, movementVector, rotationCommand):
+		msg = Info()
+		msg.pdcontrol.p = self.p
+		msg.pdcontrol.d = self.d
+		msg.pose.z = self.z
+		msg.pose.x = self.x
+		msg.pose.theta = self.robotAngle
+		msg.sticks.lv = movementVector[0]
+		msg.sticks.lh = movementVector[1]
+		msg.sticks.rh = rotationCommand
+		msg = PoseStamped()
+		msg.header.frame_id = "map"
+		msg.pose.position.x = self.z
+		msg.pose.position.y = self.x
+		msg.pose.orientation.z = np.sin(self.robotAngle/2.)
+		msg.pose.orientation.w = np.cos(self.robotAngle/2.)
+		self.publisher.publish(msg)
 
 
 	def pdControl(self, z, x):
@@ -61,7 +96,7 @@ class RobotControlClient:
 		return self.p + self.d
 
 
-	def computeRobotAngle(self, q):
+	def quat2Rotation(self, q):
 		robotAngle = -np.arcsin(2*(q.x*q.z - q.w*q.y))
 		robotFacingBackwards = 1-2*(q.y**2 + q.z**2) < 0
 		if robotFacingBackwards:
@@ -80,7 +115,7 @@ class RobotControlClient:
 		robot2TargetAngle_sign = np.sign(np.cross(robotForwardVector, robot2TargetVector))
 		robot2TargetAngle *= robot2TargetAngle_sign
 
-		movementVector = np.array([-np.cos(robot2TargetAngle), np.sin(robot2TargetAngle)]) * self.speed[0] * self.pdControl(self.z, self.x)
+		movementVector = np.array([np.cos(robot2TargetAngle), -np.sin(robot2TargetAngle)]) * self.speed[0] * self.pdControl(self.z, self.x)
 
 		maxVal = np.max(np.abs(movementVector))
 		if maxVal > 1:
@@ -90,33 +125,19 @@ class RobotControlClient:
 
 
 	def computeRotationCommand(self):
-		if np.abs(self.target[2] - np.degrees(self.robotAngle) < 180):
-			rotationCommand = -(self.target[2] - np.degrees(self.robotAngle)) * self.speed[1]
+		if np.abs(self.target[2] - self.robotAngle < np.pi):
+			rotationCommand = -(self.target[2] - self.robotAngle) * self.speed[1]
 		else:
-			rotationCommand = (self.target[2] - np.degrees(self.robotAngle)) * self.speed[1]
+			rotationCommand = (self.target[2] - self.robotAngle) * self.speed[1]
 		return rotationCommand
 
 
 	def checkIfGoalReached(self):
 		positionGoalReached = np.abs(self.target[0] - self.z)<0.1 and np.abs(self.target[1] - self.x)<0.1
-		rotationGoalReached = np.abs(np.degrees(self.robotAngle) - self.target[2])<2.0
+		rotationGoalReached = np.abs(self.robotAngle - self.target[2])<0.035
 		if positionGoalReached and rotationGoalReached:
 			rospy.loginfo('\nGoal Reached\n'+str(self.target))
 		return positionGoalReached, rotationGoalReached
-
-
-	def publish(self, movementVector, rotationCommand):
-		msg = Publish()
-		msg.pdcontrol.p = self.p
-		msg.pdcontrol.d = self.d
-		msg.rotation = self.rotationCommand
-		msg.pose.z = self.z
-		msg.pose.x = self.x
-		msg.pose.theta = self.robotAngle
-		msg.sticks.lv = movementVector[0]
-		msg.sticks.lh = movementVector[1]
-		msg.sticks.rh = movementVector[2]
-		self.publisher.publish(msg)
 
 
 	def robotCallback(self, data):
@@ -130,7 +151,7 @@ class RobotControlClient:
 			self.ws.send(msg)
 			return
 			
-		self.robotAngle = self.computeRobotAngle(data.pose.orientation)
+		self.robotAngle = self.quat2Rotation(data.pose.orientation)
 		movementVector = self.computeMovementVector()
 		rotationCommand = self.computeRotationCommand()
 

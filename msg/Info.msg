@@ -1,4 +1,4 @@
 PDControl pdcontrol
-float64 rotation
 Pose pose
 Sticks sticks
+geometry_msgs/PoseStamped rvizpose
