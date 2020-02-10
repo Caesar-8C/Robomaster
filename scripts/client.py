@@ -1,26 +1,32 @@
 #!/usr/bin/env python3
 import rospy
+from geometry_msgs.msg import PoseStamped
 from robomaster_controller.msg import Params
 from robomaster_controller.msg import Info
+import websocket
 
+
+def on_message(ws, message):
+	print('Message from server:', message)
 
 
 class keyCap:
 
 	def __init__(self):
 		rospy.init_node('listener', anonymous=True)
-		listener = rospy.Subscriber('/moo', Params, self.callback, queue_size=1)
-		self.publisher = rospy.Publisher('/pdError', Info, queue_size=1)
+		listener =  rospy.Subscriber('/tracker/pose', PoseStamped, self.callback, queue_size=1)
+		self.ws = websocket.WebSocketApp('ws://192.168.1.143:8181', on_message=on_message)
 
+		self.ws.run_forever()
 		while not rospy.is_shutdown():
 			pass
+		self.ws.close()
+
+
 
 	def callback(self, data):
-		self.p = data.pdcontrol.p
-		self.d = data.pdcontrol.d
-		self.target = [data.target.z, data.target.x, data.target.theta]
-		self.speed = [data.speed.linear, data.speed.angular]
-		self.publish()
+		msg = '0.0 0.0 0.0 0.0'
+		self.ws.send(msg)
 
 
 	def publish(self):

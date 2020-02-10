@@ -9,6 +9,11 @@ import time
 import numpy as np
 
 
+def on_message(ws, message):
+	# print('Message from server:', message)
+	pass
+
+
 class RobotControlClient:
 
 	def __init__(self):
@@ -27,14 +32,11 @@ class RobotControlClient:
 		self.lastError = 0
 		self.lastTime = 0
 
-		self.ws = websocket.WebSocketApp('ws://192.168.1.143:8181', on_message=self.on_message)
+		self.ws = websocket.WebSocketApp('ws://192.168.1.143:8181', on_message=on_message)
+		self.ws.run_forever()
 		while not rospy.is_shutdown():
-			self.ws.run_forever()
+			pass
 		self.ws.close()
-
-
-	def on_message(self, ws, message):
-		print('Message from server:', message)
 
 
 	def commandCallback(self, data):
@@ -147,7 +149,7 @@ class RobotControlClient:
 		lostSignalCheck = np.abs(self.x) + np.abs(self.y) + np.abs(self.z) < 0.01
 		if lostSignalCheck:
 			msg = '0.0 0.0 0.0 0.0'
-			rospy.loginfo('Lost Signal')
+			# rospy.loginfo('Lost Signal')
 			self.ws.send(msg)
 			return
 			
