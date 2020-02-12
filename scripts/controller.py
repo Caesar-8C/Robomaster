@@ -9,10 +9,6 @@ import time
 import numpy as np
 
 
-def on_message(ws, message):
-	# print('Message from server:', message)
-	pass
-
 
 class RobotControlClient:
 
@@ -32,11 +28,21 @@ class RobotControlClient:
 		self.lastError = 0
 		self.lastTime = 0
 
-		self.ws = websocket.WebSocketApp('ws://192.168.1.143:8181', on_message=on_message)
+		self.pitch = 0
+		self.globalYaw = 0
+		self.yaw = 0
+
+		self.ws = websocket.WebSocketApp('ws://192.168.1.143:8181', on_message=self.on_message)
 		self.ws.run_forever()
 		while not rospy.is_shutdown():
 			pass
 		self.ws.close()
+
+
+	def on_message(self, message):
+		msgList = message.split()
+		if len(msgList) == 3:
+			[self.pitch, self.globalYaw, self.yaw] = [float(x) for x in msgList]
 
 
 	def commandCallback(self, data):
