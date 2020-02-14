@@ -31,10 +31,10 @@ class RobotControlClient:
 		self.p = 0
 		self.d = 0
 
+		self.publisher = rospy.Publisher('/robomaster/info', PoseStamped, queue_size=1)
 		listener =  rospy.Subscriber('/tracker/pose', PoseStamped, self.robotCallback, queue_size=1)
 		listener2 = rospy.Subscriber('/cmd_vel', Params, self.commandCallback, queue_size=1)
 		listener3 = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.targetCallback, queue_size=1)
-		self.publisher = rospy.Publisher('/robomaster/info', PoseStamped, queue_size=1)
 
 		self.ws = websocket.WebSocketApp('ws://192.168.1.143:8181', on_message=self.on_message)
 		self.ws.run_forever()
