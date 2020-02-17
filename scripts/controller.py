@@ -141,10 +141,14 @@ class RobotControlClient:
 
 
 	def computeRotationCommand(self):
-		if np.abs(self.target[2] - self.gimbalAngle < np.pi):
-			rotationCommand = -(self.target[2] - self.gimbalAngle) * self.speed[1]
+		rotError = self.target[2] - self.gimbalAngle
+		if np.abs(rotError) < np.pi:
+			rotationCommand = -(rotError) * self.speed[1]
 		else:
-			rotationCommand = (self.target[2] - self.gimbalAngle) * self.speed[1]
+			if rotError > 0:
+				rotationCommand = (2*np.pi - rotError) * self.speed[1]
+			else:
+				rotationCommand = (-2*np.pi - rotError) * self.speed[1]
 		return rotationCommand
 
 
@@ -167,7 +171,7 @@ class RobotControlClient:
 			try:
 				self.ws.send(msg)
 			except:
-				rospy.loginfo_throttle(0.5, 'No WS Connection')
+				rospy.loginfo_throttle(0.5, 'Client: No WS Connection')
 			return
 			
 		self.gimbalAngle = self.quat2Rotation(data.pose.orientation)
