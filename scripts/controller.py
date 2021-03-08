@@ -42,7 +42,7 @@ class RobotControlClient:
 
 
 		self.publisher = rospy.Publisher('/robomaster/info', PoseStamped, queue_size=1)
-		listener =  rospy.Subscriber('/tracker/world_odometry', Odometry, self.robotCallback, queue_size=1)
+		listener =  rospy.Subscriber('/tracker/world_odometry1', Odometry, self.robotCallback, queue_size=1)
 		listener2 = rospy.Subscriber('/cmd_vel', Params, self.commandCallback, queue_size=1)
 		listener3 = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.targetCallback, queue_size=1)
 
