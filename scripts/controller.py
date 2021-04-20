@@ -18,9 +18,9 @@ class RobotControlClient:
 		rospy.init_node('listener', anonymous=True)
 
 		self.target = [-1., 0., 0.]
-		self.speed = [0.5, 0.1]
+		self.speed = [2, 0.1]
 
-		self.pGain = 2.
+		self.pGain = 1.
 		self.dGain = 0.05
 
 		self.lastError = 0
@@ -136,7 +136,7 @@ class RobotControlClient:
 		movementVector = np.array([np.cos(robot2TargetAngle), -np.sin(robot2TargetAngle)]) * self.speed[0] * self.pdControl()
 
 		maxVal = np.max(np.abs(movementVector))
-		if maxVal > 1:
+		if maxVal > 2:
 			movementVector /= maxVal
 
 		return movementVector
@@ -155,7 +155,7 @@ class RobotControlClient:
 
 
 	def checkIfGoalReached(self):
-		positionGoalReached = np.abs(self.target[0] - self.x)<0.1 and np.abs(self.target[1] - self.y)<0.1
+		positionGoalReached = np.abs(self.target[0] - self.x)<0.01 and np.abs(self.target[1] - self.y)<0.01
 		rotationGoalReached = np.abs(self.gimbalAngle - self.target[2])<0.035
 		if positionGoalReached and rotationGoalReached:
 			rospy.loginfo_throttle(3, 'Goal Reached: '+str(self.target))
